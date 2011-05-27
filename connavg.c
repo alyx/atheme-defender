@@ -36,12 +36,19 @@ DECLARE_MODULE_V1
 
 command_t os_connavg = { "CONNAVG", N_("Monitors the network for unusual connection fluxuations."), PRIV_SERVER_AUSPEX, 1, os_cmd_connavg, { .path = "oservice/connavg" } };
 
+static void reset_connections(void *unused)
+{
+    s.connections = 0;
+    s.check_time = time(NULL);
+}
+
 void _modinit(module_t *m)
 {
     service_named_bind_command("operserv", &os_connavg);
     hook_add_event("user_add");
     hook_add_user_add(connavg_newuser);
     add_uint_conf_item("SAFE_CONNECTIONS", &conf_gi_table, 0, &safe_connections, 1, INT_MAX, 5);
+    event_add("reset_connections", reset_connections, NULL, 60);
 }
 
 void _moddeinit(module_unload_intent_t intent)
@@ -50,14 +57,11 @@ void _moddeinit(module_unload_intent_t intent)
     hook_del_user_add(connavg_newuser);
     hook_del_event("user_add");
     del_conf_item("SAFE_CONNECTIONS", &conf_gi_table);
+    event_delete(reset_connections, NULL);
 }
 
 static void os_cmd_connavg(sourceinfo_t *si, int parc, char *parv[])
 {
-    if (time(NULL) > (s.check_time + 60)) {
-        s.connections = 0;
-        s.check_time = time(NULL);
-    }
     command_success_nodata(si, _("Connections in the last minute: %d"), s.connections);
     
     if (s.peak_time != 0)
@@ -104,13 +108,6 @@ static void connavg_newuser(hook_user_nick_t *data)
     {
         s.peak_conn = s.connections;
         s.peak_time = time(NULL);
-    }
-
-    /* Reset the connection amount every minute. */
-    if (time(NULL) > (s.check_time + 60))
-    {
-        s.connections = 0;
-        s.check_time = time(NULL);
     }
 }
 
