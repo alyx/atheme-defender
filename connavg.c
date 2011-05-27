@@ -7,12 +7,12 @@
  */
 
 #include "atheme.h"
+#include "conf.h"
+#include <limits.h>
 
 static void connavg_newuser(hook_user_nick_t *data);
 static void connavg_configready(void *unused);
 static void os_cmd_connavg(sourceinfo_t *si, int parc, char *parv[]);
-
-#define MAXCONNS 20
 
 typedef struct
 {
@@ -24,6 +24,8 @@ typedef struct
 } state;
 
 state s;
+
+unsigned int safe_connections = 0;
 
 DECLARE_MODULE_V1
 (
@@ -39,6 +41,7 @@ void _modinit(module_t *m)
     service_named_bind_command("operserv", &os_connavg);
     hook_add_event("user_add");
     hook_add_user_add(connavg_newuser);
+    add_uint_conf_item("SAFE_CONNECTIONS", &conf_gi_table, 0, &safe_connections, 1, INT_MAX, 5);
 }
 
 void _moddeinit(module_unload_intent_t intent)
@@ -46,6 +49,7 @@ void _moddeinit(module_unload_intent_t intent)
     service_named_unbind_command("operserv", &os_connavg);
     hook_del_user_add(connavg_newuser);
     hook_del_event("user_add");
+    del_conf_item("SAFE_CONNECTIONS", &conf_gi_table);
 }
 
 static void os_cmd_connavg(sourceinfo_t *si, int parc, char *parv[])
@@ -58,7 +62,7 @@ static void os_cmd_connavg(sourceinfo_t *si, int parc, char *parv[])
     
     if (s.peak_time != 0)
         command_success_nodata(si, _("Peak connections: %d (Reached %s ago)"), s.peak_conn, time_ago(s.peak_time));
-    command_success_nodata(si, _("Configuration alert level: %d"), MAXCONNS);
+    command_success_nodata(si, _("Configuration alert level: %d"), safe_connections);
     
     if (s.alert_time != 0)
         command_success_nodata(si, _("Alert peak last broken: %s ago"), time_ago(s.alert_time));
@@ -86,12 +90,12 @@ static void connavg_newuser(hook_user_nick_t *data)
 
     s.connections++;
 
-    if (s.connections > MAXCONNS)
+    if (s.connections > safe_connections)
     {
         /* Send a warning every five connects greater than the "safe" connection allowence. */
         if (s.connections % 5 == 0) {
             wallops("WARNING! Connections in the last minute was %d, which is above the maxium safe connections of %d per minute!",
-                    s.connections, MAXCONNS);
+                    s.connections, safe_connections);
             s.alert_time = time(NULL);
         }
     }
