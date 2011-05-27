@@ -55,14 +55,16 @@ static void os_cmd_connavg(sourceinfo_t *si, int parc, char *parv[])
         s.check_time = time(NULL);
     }
     command_success_nodata(si, _("Connections in the last minute: %d"), s.connections);
-    /*command_success_nodata(si, _("Peak connections: %d (last connection was %s ago)"), s.peak_conn, (temp != NULL ? temp : "N/A"));*/
+    
     if (s.peak_time != 0)
         command_success_nodata(si, _("Peak connections: %d (Reached %s ago)"), s.peak_conn, time_ago(s.peak_time));
     command_success_nodata(si, _("Configuration alert level: %d"), MAXCONNS);
+    
     if (s.alert_time != 0)
         command_success_nodata(si, _("Alert peak last broken: %s ago"), time_ago(s.alert_time));
     else
         command_success_nodata(si, _("Alert peak last broken: never"));
+    
     logcommand(si, CMDLOG_GET, "CONNAVG");
 }
 
@@ -86,6 +88,7 @@ static void connavg_newuser(hook_user_nick_t *data)
 
     if (s.connections > MAXCONNS)
     {
+        /* Send a warning every five connects greater than the "safe" connection allowence. */
         if (s.connections % 5 == 0) {
             wallops("WARNING! Connections in the last minute was %d, which is above the maxium safe connections of %d per minute!",
                     s.connections, MAXCONNS);
@@ -99,6 +102,7 @@ static void connavg_newuser(hook_user_nick_t *data)
         s.peak_time = time(NULL);
     }
 
+    /* Reset the connection amount every minute. */
     if (time(NULL) > (s.check_time + 60))
     {
         s.connections = 0;
