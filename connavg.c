@@ -87,7 +87,8 @@ static void os_cmd_connavg(sourceinfo_t *si, int parc, char *parv[])
     
     int i;
     int total;
-    update_usercount(NULL);
+    if (s._users_count == 0)
+        update_usercount(NULL);
     for (i = 0; i <= s._users_count; i++)
     {
         total += s.users[i];
