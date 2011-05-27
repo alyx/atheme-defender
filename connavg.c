@@ -21,8 +21,9 @@ typedef struct
     int peak_conn;
     int alert_time;
     int check_time;
+    int users[5];
+    int _users_count;
 } state;
-
 state s;
 
 unsigned int safe_connections = 0;
@@ -36,10 +37,30 @@ DECLARE_MODULE_V1
 
 command_t os_connavg = { "CONNAVG", N_("Monitors the network for unusual connection fluxuations."), PRIV_SERVER_AUSPEX, 1, os_cmd_connavg, { .path = "oservice/connavg" } };
 
+static void update_usercount(void *unused)
+{
+    if (s._users_count <=5)
+    {
+        
+        s.users[s._users_count] = (cnt.user - me.me->users);
+        s._users_count++;
+    }
+    else
+    {
+        int i;
+        for (i = 0; i <= 4; i++)
+        {
+            s.users[i] = s.users[i+1];
+        }
+        s.users[5] = (cnt.user - me.me->users);
+    }
+}
+
 static void reset_connections(void *unused)
 {
     s.connections = 0;
     s.check_time = time(NULL);
+    update_usercount(NULL);
 }
 
 void _modinit(module_t *m)
@@ -64,6 +85,16 @@ static void os_cmd_connavg(sourceinfo_t *si, int parc, char *parv[])
 {
     command_success_nodata(si, _("Connections in the last minute: %d"), s.connections);
     
+    int i;
+    int total;
+    update_usercount(NULL);
+    for (i = 0; i <= s._users_count; i++)
+    {
+        total += s.users[i];
+    }
+    float average = total / s._users_count;
+    command_success_nodata(si, _("Average user count: %f"), average);
+
     if (s.peak_time != 0)
         command_success_nodata(si, _("Peak connections: %d (Reached %s ago)"), s.peak_conn, time_ago(s.peak_time));
     command_success_nodata(si, _("Configuration alert level: %d"), safe_connections);
