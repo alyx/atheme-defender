@@ -36,7 +36,7 @@ DECLARE_MODULE_V1
 
 command_t os_connavg = { "CONNAVG", N_("Monitors the network for unusual connection fluxuations."), PRIV_SERVER_AUSPEX, 1, os_cmd_connavg, { .path = "oservice/connavg" } };
 
-static void reset_connections(void *unused)
+static void reset_connections(void)
 {
     s.connections = 0;
     s.check_time = time(NULL);
